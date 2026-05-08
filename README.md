@@ -2,7 +2,7 @@
 
 ## Overview
 
-Download the data from [here](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset?select=movies_metadata.csv), rename the folder to `data` and place it under the main folder
+Download the data from [here](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset), rename the folder to `data` and place it under the main folder
 
 This project explores how recommender systems and natural language processing (NLP) can be used to generate personalized movie recommendations using film metadata.
 
