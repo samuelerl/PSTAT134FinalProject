@@ -1,6 +1,13 @@
-.Rproj.user
+.Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
-.positai
-~/data
+.positai/
+
+data/
+134FinalProjectWriteUp_cache/
+134FinalProjectWriteUp_files/
+
+.DS_Store
+
+*.html

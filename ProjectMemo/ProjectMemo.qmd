@@ -1,0 +1,71 @@
+---
+title: "Project Memo"
+author: "Samuel Erlikhman, Eric Livshiz, Jake Vurpillat, Dylan Crookes, Tanveer Singh"
+format: pdf
+editor: visual
+---
+
+# Project Memo
+
+## Dataset Overview
+
+- Our project will use two datasets; [TV Series Dataset](https://www.kaggle.com/datasets/bourdier/all-tv-series-details-dataset) and [The Movies Dataset](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset) from Kaggle. We can easily download these datasets using curl to get a zip file (or Kaggle CLI). The TV dataset consists of scraped data from the Movie Database API (so no need to scrape ourselves). The Movie dataset consists of 45,000 movies from the MovieLens dataset, as well as ratings for all the movies.
+- The TV series dataset has $152,970$ observations (shows) and 188 columns. Example columns include name, date of the latest episode, language, origin country, and other miscellaneous predictors. Most of the data is text and is unstructured, but there are categorical variables as well (i.e., `genre` and `language`). This dataset has about 21.964% entries missing. The reason being, that the columns are generated from JSON structures, and we will most likely remove (or impute some) of the missingness, as many columns are not common or useful for analysis, such as `production_companies.17..` or `created_by.13..id`.
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(knitr)
+tv <- read.csv("data/tv/tvs.csv")
+
+missing_pct <- tv %>%
+  summarise(across(everything(), ~ mean(is.na(.)))) %>%
+  pivot_longer(cols = everything(), 
+               names_to = "column", 
+               values_to = "missing_pct") %>%
+  arrange(desc(missing_pct))
+
+missing_pct %>% head(5) %>% kable()
+
+total_missing <- sum(is.na(tv))
+total_cells <- nrow(tv) * ncol(tv)
+overall_missing_pct <- (total_missing / total_cells) * 100
+overall_missing_pct
+```
+
+- The movies dataset has 45,000 observations, and the main file has 7 predictors. That being said, the dataset also contains movie plot keywords, credits, and links in other files. Like with the TV dataset, most of the data is unstructured text, such as `Title` and `Keywords`, but there will be some categorical predictors, like `genre` and even some numerical predictors (`budget`). The movies data has much less missing data, the links data has about $0.159$% and metadata has about $9.676$%. We will most likely not use `links` , as we don't really IMDB IDs of movies, it is not a meaningful predictor. Metadata will need to be looked at more closely, and most likely we will remove the data, as 9.6% is negligible when dealing with 45,000 movies (about 4,354 films have missing data).
+
+```{r, message=FALSE, warning=FALSE}
+credits <- read_csv("data/movies/credits.csv")
+keywords <- read_csv("data/movies/keywords.csv")
+links <- read_csv("data/movies/links.csv")
+ratings <- read_csv("data/movies/ratings.csv")
+movies <- read_csv("data/movies/movies_metadata.csv")
+
+missing_pct <- function(df) {
+  mean(is.na(df)) * 100
+}
+missing_summary <- tibble(
+  dataset = c("credits", "keywords", "links", "ratings", "movies_metadata"),
+  missing_pct = c(
+    missing_pct(credits),
+    missing_pct(keywords),
+    missing_pct(links),
+    missing_pct(ratings),
+    missing_pct(movies)
+  )
+)
+
+missing_summary %>% kable()
+```
+
+## Research Question(s)
+
+- As we intend to build two different models, we are not focusing on a single outcome. Instead, we want to predict user preferences and predict recommendations based on NLP queries. The primary outcome will most likely be a relevance score for query and recommendation. We think the most impactful predictors will be `overview`, `keywords`, `language`, `genre`, `cast`, and `popularity`. The models are a combination of descriptive and predictive modeling, as we want to summarize relationships between movies/shows and their similarities, as well as predict which movie or show a user will enjoy most.
+
+## Project Timeline
+
+- Using the course syllabus as a guideline, as we don't have to spend significant time on scraping data, we can jump right into tidying data, and finish this by next week (week 4), week 5 complete our EDA, week 6-7 run our models, and 8-9 complete our write up and final draft.
+
+- We are concerned about a few things; the first being how to combine and complete analysis for two completely different datasets, with completely different variables. We want to take a look at both movies and TV shows as we're up for a challenge, and it will be more interesting than a simple recommender system. Regarding the NLP recommender, if we're considering media from other countries and the values are not ASCII (a different language), we will have to figure out a way to make our NLP a polyglot. Worst case, we will narrow the data down to only ASCII titles, and go from there.
