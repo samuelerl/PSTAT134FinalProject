@@ -12,12 +12,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       cache = TRUE,
                       message = FALSE,
                       warning = FALSE)
-library(knitr)
-library(ggplot2)
-library(dplyr)
-library(readr)
-library(tidyverse)
-library(ISOcodes)
+source("R/01_packages.R")
+source("R/03_clean_and_merge.R")
+source("R/04_eda_plots.R")
 ```
 
 ## Introduction
@@ -60,42 +57,7 @@ Natural language processing is used in this project to understand text-based mov
 Let's start by introducing the datasets provided:
 
 ```{r}
-keywords <- read_csv("data/movies/keywords.csv")
-links <- read_csv("data/movies/links.csv")
-ratings <- read_csv("data/movies/ratings.csv")
-movies <- read_csv("data/movies/movies_metadata.csv")
-credits <- read_csv("data/movies/credits.csv")
-
-dataset_summary <- tibble(
-  dataset = c("credits", "keywords", "links", "ratings", "movies_metadata"),
-  observations = c(
-    nrow(keywords),
-    nrow(links),
-    nrow(ratings),
-    nrow(movies),
-    nrow(credits)
-  ),
-  variables = c(
-    ncol(keywords),
-    ncol(links),
-    ncol(ratings),
-    ncol(movies),
-    ncol(credits)
-  )
-) %>% kable()
-
-column_summary <- tibble(
-  dataset = c("credits", "keywords", "links", "ratings", "movies_metadata"),
-  columns = c(
-    paste(colnames(keywords), collapse = ", "),
-    paste(colnames(links), collapse = ", "),
-    paste(colnames(ratings), collapse = ", "),
-    paste(colnames(movies), collapse = ", "),
-    paste(colnames(credits), collapse = ", ")
-  )
-)
-
-column_summary %>% kable()
+source("R/02_load_data.R")
 ```
 
 Let's explore each dataset individually.
@@ -127,24 +89,13 @@ head(ratings, n = 2) %>% kable()
 Here's a new ID variable, `userId`. We also see `timestamp`, which looks like the timestamp of when the movie was rated. Not very useful for us; we know when the movie was released and don't care when the film was watched.
 
 ```{r}
-ratings_clean <- ratings %>%
-  select(
-    - timestamp
-  )
+ratings_clean <- clean_ratings(ratings)
 ```
 
 Movies: For the movie metadata dataset, as it has 24 columns. We don't need to display all of them (as they will not fit in the resulting document), and not all of them are useful. Let's get rid of the less useful columns, and then display the rest:
 
 ```{r}
-movies_clean <- movies %>%
-  select(
-    -homepage,
-    -original_title,
-    -poster_path,
-    -video,
-    -status,
-    -original_title
-  )
+movies_clean <- trim_movies_metadata(movies)
 
 head(movies_clean, n = 2) %>% kable()
 ```
@@ -160,26 +111,13 @@ ratings$movieId = MovieLens Id
 Links does not have IDs, but the order in which the movies are stored is the same order as the the movie metadata dataset. Let's merge movies, keywords, and credits by tmdbId, map ratings' movieId to tmdbId using links, summarize ratings by movie, and merge rating summaries into the full data.
 
 ```{r}
-movies_full <- movies_clean %>%
-  left_join(keywords, by = "id") %>%
-  left_join(credits, by = "id")
+movies_full <- merge_movies_keywords_credits(movies_clean, keywords, credits)
 
-ratings_mapped <- ratings_clean %>%
-  left_join(links, by = "movieId")
+ratings_join_out <- map_ratings_to_tmdb_summaries(ratings_clean, links)
+ratings_mapped <- ratings_join_out$ratings_mapped
+ratings_summary <- ratings_join_out$ratings_summary
 
-ratings_summary <- ratings_mapped %>%
-  group_by(tmdbId) %>%
-  summarise(
-    avg_user_rating = mean(rating, na.rm = TRUE),
-    num_user_ratings = n(),
-    .groups = "drop"
-  )
-
-movies_final <- movies_full %>%
-  left_join(
-    ratings_summary,
-    by = c("id" = "tmdbId")
-  )
+movies_final <- join_rating_summaries(movies_full, ratings_summary)
 ```
 
 Let's take a look at the column names of this final dataset which we'll use for our analysis:
@@ -202,13 +140,7 @@ movies_final %>%
 ```
 Let's map them to the full language name:
 ```{r}
-movies_final <- movies_final %>%
-  mutate(
-    original_language =
-      ISO_639_2$Name[
-        match(original_language, ISO_639_2$Alpha_2)
-      ]
-  )
+movies_final <- map_original_language_to_names(movies_final)
 
 movies_final %>%
   distinct(original_language) %>% 
@@ -217,14 +149,7 @@ movies_final %>%
 ```
 Much better. Let's rename a few columns to be more accurate as well, and add a `year` column, which will be useful for EDA
 ```{r}
-movies_final <- movies_final %>%
-  rename(
-    runtime_minutes = runtime,
-    tmdb_vote_average = vote_average,
-    tmdb_vote_count = vote_count,
-    tmdb_popularity = popularity
-  ) %>%
-  mutate(release_year = year(release_date))
+movies_final <- rename_tmdb_vote_columns(movies_final)
 ```
 
 ### Removing Data
@@ -232,31 +157,18 @@ movies_final <- movies_final %>%
 Before cleaning the data further, let's try understand our dataset a bit better. We should check our data's dimensions and remove any duplicated rows by ID:
 
 ```{r}
-dataset_summary <- tibble(
-  observations = nrow(movies_final),
-  variables = ncol(movies_final),
-  duplicate_rows = sum(duplicated(movies_final)),
-  unique_movies = n_distinct(movies_final$id)
-)
+dedupe_out <- dedupe_movies_final_with_summary(movies_final)
+dataset_summary <- dedupe_out$dataset_summary
+movies_final <- dedupe_out$movies_final
 
 dataset_summary %>%
   kable(caption = "Dataset Summary")
-
-movies_final <- movies_final %>%
-  distinct(id, .keep_all = TRUE)
 ```
 
 So we have 45,434 distinct films and 24 distinct variables. Let's now take a look at missingness:
 
 ```{r}
-missing_summary <- movies_final %>%
-  summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
-  pivot_longer(
-    cols = everything(),
-    names_to = "column",
-    values_to = "missing_pct"
-  ) %>%
-  arrange(desc(missing_pct))
+missing_summary <- compute_missingness_long(movies_final)
 
 missing_summary %>%
   kable(
@@ -270,36 +182,7 @@ In the grand scheme of things, this is a pretty clean dataset! Let's go column b
 Numeric columns can be imputed by using the median, and we will do so for `avg_user_rating`, `num_user_ratings`, and `runtime`. The other rows (`release_date`, `imdb_id`, `original_language`, and all others) all have missingness less than 4%, so we'd be removing very few rows overall.
 
 ```{r}
-movies_clean <- movies_final %>%
-  select(-belongs_to_collection) %>%
-    mutate(
-    tagline = replace_na(tagline, ""),
-    overview = replace_na(overview, "")
-  ) %>%
-    mutate(
-    avg_user_rating = replace_na(avg_user_rating, median(avg_user_rating, na.rm = TRUE)),
-    num_user_ratings = replace_na(num_user_ratings, median(num_user_ratings, na.rm = TRUE)),
-    runtime_minutes = replace_na(runtime_minutes, median(runtime_minutes, na.rm = TRUE))
-  ) %>%
-    drop_na(
-    release_date,
-    imdb_id,
-    original_language,
-    tmdb_popularity,
-    revenue,
-    spoken_languages,
-    title,
-    tmdb_vote_average,
-    tmdb_vote_count,
-    production_companies,
-    production_countries,
-    cast,
-    crew,
-    adult,
-    budget,
-    id,
-    genres
-  )
+movies_clean <- impute_and_drop_for_modeling(movies_final)
 
 sum(is.na(movies_clean)) %>% kable()
 ```
@@ -354,27 +237,7 @@ We see a long tail, with the data skewed to the right. This again, does make sen
 Let's take a look at comparing movies and their release date. It's likely that more films were released in recent times. It would be interesting to have included more recent data, due to COVID-19 and recent strikes in the film industry. Still, let's see if there are any visible trends:
 
 ```{r}
-movies_clean %>%
-  count(release_year) %>%
-  ggplot(aes(x = release_year, y = n)) +
-  geom_line(
-    color = "#4C78A8",
-    linewidth = 1.2
-  ) +
-  geom_point(
-    color = "#4C78A8",
-    size = 1.5
-  ) +
-  labs(
-    title = "Number of Movies Released Per Year",
-    x = "Release Year",
-    y = "Number of Movies"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(color = "gray40"),
-    axis.title = element_text(face = "bold"))
+plot_movies_per_year(movies_clean)
 ```
 
 What's going on here? We see what looks to be an exponential increase, which does make sense (growth of industry, technological advances for animation and CGI), but we see a sudden drop towards the end of the data. Most likely, there's entries about films which would be released after 2017 (the cutoff of the data, so there aren't many datapoints for later dates). Let's take a closer look:
@@ -390,30 +253,9 @@ movies_clean %>%
 So we see a few things happening. First, reviewers had left reviews for unreleased films - they are time travelers! Let's remove these films from the data. Second, as this dataset has a cutoff of July 2017, according to its description, so about half of the films released in 2017 are missing, which explains the drop. 
 
 ```{r}
-movies_clean <- movies_clean %>%  
-  filter(release_year <= 2017)
+movies_clean <- filter_movies_released_through_year(movies_clean, 2017L)
 
-movies_clean %>%
-  count(release_year) %>%
-  ggplot(aes(x = release_year, y = n)) +
-  geom_line(
-    color = "#4C78A8",
-    linewidth = 1.2
-  ) +
-  geom_point(
-    color = "#4C78A8",
-    size = 1.5
-  ) +
-  labs(
-    title = "Number of Movies Released Per Year",
-    x = "Release Year",
-    y = "Number of Movies"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(color = "gray40"),
-    axis.title = element_text(face = "bold"))
+plot_movies_per_year(movies_clean)
 ```
 
 ### Genres
