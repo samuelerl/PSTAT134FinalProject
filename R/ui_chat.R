@@ -4,6 +4,10 @@ chat_ui <- function() {
   tagList(
     div(
       class = "chat-app",
+      tags$header(
+        class = "chat-header",
+        tags$h1(class = "chat-header-title", "Movie Recommender")
+      ),
       div(
         class = "chat-thread",
         div(
@@ -47,7 +51,8 @@ chat_ui <- function() {
               inputId = "chat_input",
               label = NULL,
               placeholder = "Message the assistant…",
-              rows = 2
+              rows = 2,
+              width = "100%"
             )
           ),
           actionButton("send", "Send", class = "btn-primary")

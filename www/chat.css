@@ -12,6 +12,30 @@
   --chat-composer-shadow: 0 -4px 24px rgba(24, 24, 27, 0.06);
   --chat-radius: 12px;
   --chat-radius-sm: 8px;
+  --chat-header-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 20px rgba(24, 24, 27, 0.04);
+}
+
+.chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 1rem;
+  background: var(--chat-surface);
+  border-bottom: 1px solid var(--chat-border);
+  box-shadow: var(--chat-header-shadow);
+}
+
+.chat-header-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--chat-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .chat-app {
@@ -92,7 +116,24 @@
   margin-bottom: 0.5rem;
 }
 
+/* Message field spans remaining row width beside Send (override Shiny default widths). */
+.chat-composer-actions .shiny-input-container,
+.chat-composer-actions .form-group {
+  width: 100%;
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.chat-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 .chat-composer textarea.form-control {
+  width: 100%;
+  box-sizing: border-box;
   border-radius: var(--chat-radius-sm);
   resize: vertical;
   min-height: 2.75rem;
@@ -102,12 +143,6 @@
   margin-bottom: 0 !important;
   font-size: 0.8rem;
   color: var(--chat-muted);
-}
-
-.chat-composer-actions {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
 }
 
 .chat-composer-actions .btn {
