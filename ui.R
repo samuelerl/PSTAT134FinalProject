@@ -1,20 +1,13 @@
 # Shiny user interface. Runs after global.R.
-# Replace this placeholder layout as the recommender UI takes shape.
 
-ui <- fluidPage(
-  titlePanel(APP_TITLE),
-  sidebarLayout(
-    sidebarPanel(
-      width = 3,
-      helpText(
-        "Boilerplate shell: wire inputs here (movie search, filters, chat, etc.)",
-        "once the recommender and NLP pieces live in R/05_recommender.R (or similar)."
-      )
-    ),
-    mainPanel(
-      width = 9,
-      h4("Status"),
-      verbatimTextOutput("app_status")
-    )
-  )
+ui <- page_fillable(
+  title = APP_TITLE,
+  theme = bs_theme(version = 5),
+  padding = 0,
+  gap = 0,
+  fillable_mobile = TRUE,
+  tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "chat.css")
+  ),
+  chat_ui()
 )

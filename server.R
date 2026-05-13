@@ -2,11 +2,11 @@
 # Keep reactive work here; call functions defined under R/ for clarity.
 
 server <- function(input, output, session) {
-  output$app_status <- renderText({
-    paste0(
-      "Shiny ", packageVersion("shiny"), " | ",
-      APP_TITLE, " | v", APP_VERSION, "\n",
-      "global.R has run; add outputs and reactives as the project matures."
+  observeEvent(input$send, {
+    showNotification(
+      "Recommender model not wired yet — this is a UI-only preview.",
+      type = "message",
+      duration = 4
     )
-  })
+  }, ignoreInit = TRUE)
 }
