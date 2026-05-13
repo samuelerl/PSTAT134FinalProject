@@ -133,13 +133,16 @@ tibble(dataset = "movies_final",
 ### Tidying
 
 Let's see if we can make a few columns look nicer. Taking a look at original language, we see that the character values are two-letter ISO 639-1 language codes:
+
 ```{r}
 movies_final %>%
   distinct(original_language) %>% 
   head(n = 5) %>%
   kable()
 ```
+
 Let's map them to the full language name:
+
 ```{r}
 movies_final <- map_original_language_to_names(movies_final)
 
@@ -148,7 +151,9 @@ movies_final %>%
   head(n = 5) %>%
   kable()
 ```
+
 Much better. Let's rename a few columns to be more accurate as well, and add a `year` column, which will be useful for EDA
+
 ```{r}
 movies_final <- rename_tmdb_vote_columns(movies_final)
 ```
@@ -193,7 +198,9 @@ Now we are left with 113 films less, and can confidently start our EDA.
 ## EDA
 
 ### Distribution of Ratings
+
 Let's take a look the distribution of ratings:
+
 ```{r}
 ggplot(movies_clean, aes(tmdb_vote_average)) +
   geom_histogram(binwidth=0.5, fill = "blue", color = "white") + 
@@ -204,11 +211,13 @@ ggplot(movies_clean, aes(tmdb_vote_average)) +
   ) + 
   theme_minimal()
 ```
+
 This is expected; users seem to be more likely to either give a "slightly above average" rating, or a complete dislike, i,e, 0. Few usually give full marks. So the data is slightly skewed to the left.
 
 ### Ratings Count
 
 Let's also take a look at ratings count - it's expected that there's most likely some correlation with more popular films, i.e., films with hundreds of millions for a budget or films that are generally rated higher
+
 ```{r}
 ggplot(movies_clean, aes(x = tmdb_vote_count)) +
   geom_histogram(
@@ -231,10 +240,11 @@ ggplot(movies_clean, aes(x = tmdb_vote_count)) +
     panel.grid.minor = element_blank()
   )
 ```
+
 We see a long tail, with the data skewed to the right. This again, does make sense - most films don't receive many ratings. Think of how many blockbuster films come out per year relative to all "other" films. This most most likely can be seen in any data that has popularity attached to it, and the movie industry is no different.
 
-
 ### Movies by Year
+
 Let's take a look at comparing movies and their release date. It's likely that more films were released in recent times. It would be interesting to have included more recent data, due to COVID-19 and recent strikes in the film industry. Still, let's see if there are any visible trends:
 
 ```{r}
@@ -242,6 +252,7 @@ plot_movies_per_year(movies_clean)
 ```
 
 What's going on here? We see what looks to be an exponential increase, which does make sense (growth of industry, technological advances for animation and CGI), but we see a sudden drop towards the end of the data. Most likely, there's entries about films which would be released after 2017 (the cutoff of the data, so there aren't many datapoints for later dates). Let's take a closer look:
+
 ```{r}
 movies_clean %>%
   filter(release_year > 2015) %>% 
@@ -251,7 +262,7 @@ movies_clean %>%
   
 ```
 
-So we see a few things happening. First, reviewers had left reviews for unreleased films - they are time travelers! Let's remove these films from the data. Second, as this dataset has a cutoff of July 2017, according to its description, so about half of the films released in 2017 are missing, which explains the drop. 
+So we see a few things happening. First, reviewers had left reviews for unreleased films - they are time travelers! Let's remove these films from the data. Second, as this dataset has a cutoff of July 2017, according to its description, so about half of the films released in 2017 are missing, which explains the drop.
 
 ```{r}
 movies_clean <- filter_movies_released_through_year(movies_clean, 2017L)
@@ -263,12 +274,12 @@ plot_movies_per_year(movies_clean)
 
 ### Genre vs. Rating
 
-### Word Cloud 
-keywords_tokens %>%
-  count(word, sort=TRUE)
-bind_tf_idf(word, genre, n)
+### Word Cloud
+
+keywords_tokens %\>% count(word, sort=TRUE) bind_tf_idf(word, genre, n)
 
 ### Numeric Features Heatmap
+
 corrplot(cor(numeric_df))
 
 ### Runtime Distribution
@@ -276,25 +287,26 @@ corrplot(cor(numeric_df))
 ### Popularity vs. Rating
 
 ### Bigrams
+
 use tidytext, lab 8
 
 ### Cosine Similarity, lab 8
 
 # The Modeling
 
-Now with all the data cleaning and visualizations we have seen above, its now time to get into the most important part of this process, building the NLP and recommender models. 
+Now with all the data cleaning and visualizations we have seen above, its now time to get into the most important part of this process, building the NLP and recommender models.
 
 ## NLP Model
 
 ### Tokenizing
 
 For the NLP model, as discussed prior we will be taking a text representation of each movie and changing it into a query for the Recommender system. To start we must go through a process called tokenization, where each word or word group will begin to be paired together in order to better identify what each word may represent.
+
 ```{r}
 movies_text <- make_movies_text(movies_clean)
   
   
-movies_tokens <- make_movie_tokens(movies_text
-                                   )
+movies_tokens <- make_movie_tokens(movies_text)
 movies_tokens %>%
   head(30)
 ```
@@ -308,7 +320,9 @@ movies_tokens %>%
   kbl() %>%
   scroll_box(height = "500px")
 ```
-As seen above, the word id seems to have the most words appearing, while the rest of the words seem to be more in line with movie plots or summaries, so lets remove id so it wont have a larger impact on the model than it needs to, especially with almost 250,000 seen values of it. 
+
+As seen above, the word id seems to have the most words appearing, while the rest of the words seem to be more in line with movie plots or summaries, so lets remove id so it wont have a larger impact on the model than it needs to, especially with almost 250,000 seen values of it.
+
 ```{r}
 movies_tokens_clean <- clean_movie_tokens(movies_tokens)
 
@@ -318,6 +332,7 @@ movies_tokens_clean %>%
   kbl() %>%
   scroll_box(height = "500px")
 ```
+
 With id being removed, we now have an ideal token set to be able to build our TF-IDF.
 
 ### TF-IDF
@@ -357,6 +372,7 @@ bigram_tf_idf <- make_bigram_tf_idf(movies_bigrams_clean)
 bigram_tf_idf %>%
   head(30) 
 ```
+
 Similar to the single word tf-idf, we see that there is a very high tf-idf score for films, however the number of appearances tends to be lower, so lets set a minimum appearance of 3 in order to remove rarer word combos.
 
 ```{r}
@@ -368,6 +384,7 @@ bigram_tf_idf_clean <- bigram_tf_idf %>%
 bigram_tf_idf_clean %>%
   head(30) 
 ```
+
 So now more common bigrams are used here rather than rarer ones, making the tf-idf more reliable and not reliant on outliers as much.
 
 ### Preparing for recommender
@@ -378,7 +395,6 @@ The last thing we need to do is prepare the NLP for the recommender, so we will 
 movie_search <- movies_text %>%
   distinct(id, title, release_year, tmdb_vote_average, tmdb_popularity)
 ```
-
 
 ```{r, cache = FALSE}
 movies_feature_matrix <- create_feature_matrix(bigram_tf_idf_clean)
