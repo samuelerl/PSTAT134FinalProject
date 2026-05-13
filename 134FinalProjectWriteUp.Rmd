@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE,
 source("R/01_packages.R")
 source("R/03_clean_and_merge.R")
 source("R/04_eda_plots.R")
+source("R/06_NLP.R")
 ```
 
 ## Introduction
@@ -278,3 +279,107 @@ corrplot(cor(numeric_df))
 use tidytext, lab 8
 
 ### Cosine Similarity, lab 8
+
+# The Modeling
+
+Now with all the data cleaning and visualizations we have seen above, its now time to get into the most important part of this process, building the NLP and recommender models. 
+
+## NLP Model
+
+### Tokenizing
+
+For the NLP model, as discussed prior we will be taking a text representation of each movie and changing it into a query for the Recommender system. To start we must go through a process called tokenization, where each word or word group will begin to be paired together in order to better identify what each word may represent.
+```{r}
+movies_text <- make_movies_text(movies_clean)
+  
+  
+movies_tokens <- make_movie_tokens(movies_text
+                                   )
+movies_tokens %>%
+  head(30)
+```
+
+So now we have a dataset of 17 million words, which is a extremely large dataset. As you can see from the first 30 entries, theyre all representing the same movie, this is because when tokenizing each word gets its own row, which is how we got such a large dataset. So lets look a little deeper at how many words are represented and the impact they may have.
+
+```{r}
+movies_tokens %>%
+  count(word, sort = T) %>%
+  head(30) %>%
+  kbl() %>%
+  scroll_box(height = "500px")
+```
+As seen above, the word id seems to have the most words appearing, while the rest of the words seem to be more in line with movie plots or summaries, so lets remove id so it wont have a larger impact on the model than it needs to, especially with almost 250,000 seen values of it. 
+```{r}
+movies_tokens_clean <- clean_movie_tokens(movies_tokens)
+
+movies_tokens_clean %>%
+  count(word, sort = T) %>%
+  head(30) %>%
+  kbl() %>%
+  scroll_box(height = "500px")
+```
+With id being removed, we now have an ideal token set to be able to build our TF-IDF.
+
+### TF-IDF
+
+Now using the Tf-Idf method, we can determine what words relate most with certain movies, so lets begin that process now.
+
+```{r}
+movie_tf_idf <- make_word_tf_idf(movies_tokens_clean)
+
+movie_tf_idf %>%
+  head(30)
+```
+
+As a result, we now have what the most common word is for individual movies, with the highest score of tf_idf being from non-english films, as our dataset contains all released movies, not just those from the west.
+
+### Bigrams
+
+While singular word outputs can provide strong information, in terms of movies a lot of two grouped phrases will provide much stronger insights into what a movie may relate to. For instance, word combos like space battle could help when identifying movies like Star Wars and Star trek.
+
+```{r}
+movie_bigrams <- make_bigram_tokens(movies_text)
+
+movies_bigrams_clean <- clean_bigram_tokens(movie_bigrams)
+
+movies_bigrams_clean %>%
+  count(bigram, sort = T) %>%
+  head(30) %>%
+  kbl() %>%
+  scroll_box(height = "500px")
+```
+
+As seen from the list above, we have the most common word combinations across films, a lot of which makes since. For instance, sci-fi is one of the leading movie themes, so it is reflected as the most common word combination. So using these we will make a TF-IDF for the bigrams
+
+```{r}
+bigram_tf_idf <- make_bigram_tf_idf(movies_bigrams_clean)
+
+bigram_tf_idf %>%
+  head(30) 
+```
+Similar to the single word tf-idf, we see that there is a very high tf-idf score for films, however the number of appearances tends to be lower, so lets set a minimum appearance of 3 in order to remove rarer word combos.
+
+```{r}
+bigram_tf_idf_top <- clean_bigram_tf_idf(bigram_tf_idf)
+
+bigram_tf_idf_clean <- bigram_tf_idf %>%
+  semi_join(bigram_tf_idf_top, by = "bigram")
+
+bigram_tf_idf_clean %>%
+  head(30) 
+```
+So now more common bigrams are used here rather than rarer ones, making the tf-idf more reliable and not reliant on outliers as much.
+
+### Preparing for recommender
+
+The last thing we need to do is prepare the NLP for the recommender, so we will create a feature matrix, where we take the tf_idfs and assign them a value based on the movie they are most related too.
+
+```{r}
+movie_search <- movies_text %>%
+  distinct(id, title, release_year, tmdb_vote_average, tmdb_popularity)
+```
+
+
+```{r, cache = FALSE}
+movies_feature_matrix <- create_feature_matrix(bigram_tf_idf_clean)
+```
