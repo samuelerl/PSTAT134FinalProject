@@ -2,6 +2,7 @@
 # Put one-time data loads and heavy precomputation here, not in server.R.
 
 source("R/01_packages.R", local = FALSE)
+source("R/ui_chat.R", local = FALSE)
 
 # App metadata (use in ui.R / server.R if helpful).
 APP_TITLE <- "PSTAT 134 — Movie recommender (Shiny shell)"
